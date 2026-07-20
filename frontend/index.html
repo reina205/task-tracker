@@ -16,6 +16,11 @@
         <option value="Medium">Medium</option>
         <option value="High">High</option>
       </select>
+      <label class="overdue-toggle">
+        <input type="checkbox" id="filter-overdue" />
+        Overdue only
+      </label>
+      <input type="text" id="filter-tag" placeholder="Filter by tag" class="tag-filter-input" />
       <button id="new-task-btn">+ New Task</button>
     </div>
   </header>
@@ -57,6 +62,12 @@
 
       <label for="assignee">Assignee</label>
       <input type="text" id="assignee" maxlength="100" />
+
+      <label for="due-date">Due date</label>
+      <input type="date" id="due-date" />
+
+      <label for="tags">Tags <span class="hint">(comma-separated)</span></label>
+      <input type="text" id="tags" placeholder="e.g. backend, urgent" maxlength="300" />
 
       <div class="modal-actions">
         <button type="button" id="delete-btn" class="danger hidden">Delete</button>

@@ -117,6 +117,59 @@ select, input, textarea {
 
 .assignee { color: var(--muted); }
 
+.overdue-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.card-due-row {
+  margin-top: 6px;
+  display: flex;
+}
+
+.due-pill {
+  font-size: 11px;
+  border-radius: 10px;
+  padding: 2px 8px;
+  background: var(--border);
+  color: var(--muted);
+}
+
+.due-pill.overdue {
+  background: var(--high);
+  color: white;
+  font-weight: 600;
+}
+
+.tag-filter-input {
+  width: 130px;
+}
+
+.hint {
+  font-weight: normal;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.card-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.tag-chip {
+  background: #deebff;
+  color: var(--accent);
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
 .column.drag-over { outline: 2px dashed var(--accent); }
 
 dialog {

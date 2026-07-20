@@ -5,6 +5,8 @@ const modal = document.getElementById("task-modal");
 const form = document.getElementById("task-form");
 const errorBanner = document.getElementById("error-banner");
 const filterPriority = document.getElementById("filter-priority");
+const filterOverdue = document.getElementById("filter-overdue");
+const filterTag = document.getElementById("filter-tag");
 
 let currentTasks = [];
 
@@ -47,6 +49,8 @@ async function apiRequest(path, options = {}) {
 async function fetchTasks() {
   const params = new URLSearchParams();
   if (filterPriority.value) params.set("priority", filterPriority.value);
+  if (filterOverdue.checked) params.set("overdue", "true");
+  if (filterTag.value.trim()) params.set("tag", filterTag.value.trim());
   const query = params.toString() ? `?${params.toString()}` : "";
   currentTasks = await apiRequest(`/tasks${query}`);
   renderBoard();
@@ -82,11 +86,28 @@ function renderCard(task) {
       <span class="priority-pill priority-${task.priority}"></span>
       <span class="assignee"></span>
     </div>
+    <div class="card-due-row"></div>
+    <div class="card-tags-row"></div>
   `;
   card.querySelector(".card-title").textContent = task.title;
   card.querySelector(".card-desc").textContent = task.description || "";
   card.querySelector(".priority-pill").textContent = task.priority;
   card.querySelector(".assignee").textContent = task.assignee || "";
+
+  if (task.due_date) {
+    const duePill = document.createElement("span");
+    duePill.className = "due-pill" + (task.is_overdue ? " overdue" : "");
+    duePill.textContent = task.is_overdue ? `Overdue: ${task.due_date}` : `Due ${task.due_date}`;
+    card.querySelector(".card-due-row").appendChild(duePill);
+  }
+
+  const tagsRow = card.querySelector(".card-tags-row");
+  for (const tag of task.tags || []) {
+    const chip = document.createElement("span");
+    chip.className = "tag-chip";
+    chip.textContent = tag;
+    tagsRow.appendChild(chip);
+  }
 
   card.addEventListener("click", () => openEditModal(task));
 
@@ -143,6 +164,8 @@ function openEditModal(task) {
   document.getElementById("description").value = task.description || "";
   document.getElementById("priority").value = task.priority;
   document.getElementById("assignee").value = task.assignee || "";
+  document.getElementById("due-date").value = task.due_date || "";
+  document.getElementById("tags").value = (task.tags || []).join(", ");
   document.getElementById("modal-title").textContent = "Edit Task";
   document.getElementById("delete-btn").classList.remove("hidden");
   modal.showModal();
@@ -154,11 +177,19 @@ document.getElementById("cancel-btn").addEventListener("click", () => modal.clos
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const id = document.getElementById("task-id").value;
+  const tagsRaw = document.getElementById("tags").value;
+  const tags = tagsRaw
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+
   const payload = {
     title: document.getElementById("title").value,
     description: document.getElementById("description").value || null,
     priority: document.getElementById("priority").value,
     assignee: document.getElementById("assignee").value || null,
+    due_date: document.getElementById("due-date").value || null,
+    tags: tags,
   };
 
   try {
@@ -193,5 +224,7 @@ document.getElementById("delete-btn").addEventListener("click", async () => {
 });
 
 filterPriority.addEventListener("change", fetchTasks);
+filterOverdue.addEventListener("change", fetchTasks);
+filterTag.addEventListener("input", fetchTasks);
 
 fetchTasks();

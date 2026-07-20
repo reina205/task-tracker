@@ -12,10 +12,11 @@ Design notes (Module 1-2 ADR decisions):
 """
 
 import uuid
+from datetime import date
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 
 class TaskStatus(str, Enum):
@@ -37,6 +38,36 @@ def _validate_title(value: str) -> str:
     return stripped
 
 
+_MAX_TAGS = 10
+_MAX_TAG_LENGTH = 30
+
+
+def _validate_tags(tags: Optional[list[str]]) -> Optional[list[str]]:
+    """
+    Trim whitespace, reject empty/blank tags, enforce a max length per tag,
+    de-duplicate (case-sensitive as written), and cap the total count.
+    None means "not provided" (leave unchanged on update); an empty list
+    means "clear all tags".
+    """
+    if tags is None:
+        return None
+
+    cleaned: list[str] = []
+    for tag in tags:
+        stripped = tag.strip()
+        if not stripped:
+            raise ValueError("tags must not be empty or whitespace-only")
+        if len(stripped) > _MAX_TAG_LENGTH:
+            raise ValueError(f"each tag must be {_MAX_TAG_LENGTH} characters or fewer")
+        if stripped not in cleaned:
+            cleaned.append(stripped)
+
+    if len(cleaned) > _MAX_TAGS:
+        raise ValueError(f"a task may have at most {_MAX_TAGS} tags")
+
+    return cleaned
+
+
 class TaskCreate(BaseModel):
     """Request body for POST /tasks."""
 
@@ -47,11 +78,18 @@ class TaskCreate(BaseModel):
     status: TaskStatus = TaskStatus.TODO
     priority: TaskPriority = TaskPriority.MEDIUM
     assignee: Optional[str] = Field(default=None, max_length=100)
+    due_date: Optional[date] = Field(default=None)
+    tags: list[str] = Field(default_factory=list)
 
     @field_validator("title")
     @classmethod
     def title_not_blank(cls, v: str) -> str:
         return _validate_title(v)
+
+    @field_validator("tags")
+    @classmethod
+    def tags_valid(cls, v: list[str]) -> list[str]:
+        return _validate_tags(v) or []
 
 
 class TaskUpdate(BaseModel):
@@ -64,6 +102,8 @@ class TaskUpdate(BaseModel):
     status: Optional[TaskStatus] = None
     priority: Optional[TaskPriority] = None
     assignee: Optional[str] = Field(default=None, max_length=100)
+    due_date: Optional[date] = Field(default=None)
+    tags: Optional[list[str]] = Field(default=None)
 
     @field_validator("title")
     @classmethod
@@ -71,6 +111,11 @@ class TaskUpdate(BaseModel):
         if v is None:
             return v
         return _validate_title(v)
+
+    @field_validator("tags")
+    @classmethod
+    def tags_valid(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+        return _validate_tags(v)
 
 
 class TaskResponse(BaseModel):
@@ -84,6 +129,20 @@ class TaskResponse(BaseModel):
     status: TaskStatus
     priority: TaskPriority
     assignee: Optional[str] = None
+    due_date: Optional[date] = None
+    tags: list[str] = Field(default_factory=list)
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def is_overdue(self) -> bool:
+        """
+        Computed at read time (not stored), so it always reflects "today"
+        rather than the date the task was created or last updated.
+        A task with no due date, or one already Done, is never overdue.
+        """
+        if self.due_date is None or self.status == TaskStatus.DONE:
+            return False
+        return self.due_date < date.today()
 
 
 def new_task_id() -> str:

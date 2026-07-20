@@ -115,6 +115,136 @@ class TestUpdateTask:
         assert response.status_code == 422
 
 
+class TestDueDateAndOverdue:
+    def test_create_task_with_valid_due_date(self, client):
+        response = client.post(
+            "/tasks", json={"title": "Pay bill", "due_date": "2030-01-01"}
+        )
+        assert response.status_code == 201
+        assert response.json()["due_date"] == "2030-01-01"
+
+    def test_create_task_rejects_invalid_due_date_format(self, client):
+        response = client.post(
+            "/tasks", json={"title": "Pay bill", "due_date": "not-a-date"}
+        )
+        assert response.status_code == 422
+
+    def test_future_due_date_is_not_overdue(self, client):
+        response = client.post(
+            "/tasks", json={"title": "Future task", "due_date": "2099-01-01"}
+        )
+        assert response.json()["is_overdue"] is False
+
+    def test_past_due_date_is_overdue(self, client):
+        response = client.post(
+            "/tasks", json={"title": "Late task", "due_date": "2000-01-01"}
+        )
+        assert response.json()["is_overdue"] is True
+
+    def test_done_task_with_past_due_date_is_not_overdue(self, client):
+        create = client.post(
+            "/tasks", json={"title": "Late but done", "due_date": "2000-01-01"}
+        )
+        task_id = create.json()["id"]
+        response = client.patch(f"/tasks/{task_id}", json={"status": "Done"})
+        assert response.json()["is_overdue"] is False
+
+    def test_task_with_no_due_date_is_not_overdue(self, client, created_task):
+        assert created_task["is_overdue"] is False
+
+    def test_update_due_date(self, client, created_task):
+        response = client.patch(
+            f"/tasks/{created_task['id']}", json={"due_date": "2030-06-15"}
+        )
+        assert response.status_code == 200
+        assert response.json()["due_date"] == "2030-06-15"
+
+    def test_filter_overdue_true_returns_only_overdue(self, client):
+        client.post("/tasks", json={"title": "Late", "due_date": "2000-01-01"})
+        client.post("/tasks", json={"title": "Future", "due_date": "2099-01-01"})
+        client.post("/tasks", json={"title": "No date"})
+
+        response = client.get("/tasks", params={"overdue": "true"})
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body) == 1
+        assert body[0]["title"] == "Late"
+
+
+class TestTags:
+    def test_create_task_with_tags(self, client):
+        response = client.post(
+            "/tasks", json={"title": "Fix bug", "tags": ["backend", "urgent"]}
+        )
+        assert response.status_code == 201
+        assert response.json()["tags"] == ["backend", "urgent"]
+
+    def test_create_task_defaults_to_empty_tags(self, client, created_task):
+        assert created_task["tags"] == []
+
+    def test_create_task_rejects_empty_tag(self, client):
+        response = client.post(
+            "/tasks", json={"title": "Fix bug", "tags": ["backend", "   "]}
+        )
+        assert response.status_code == 422
+
+    def test_create_task_trims_tag_whitespace(self, client):
+        response = client.post(
+            "/tasks", json={"title": "Fix bug", "tags": ["  backend  "]}
+        )
+        assert response.status_code == 201
+        assert response.json()["tags"] == ["backend"]
+
+    def test_create_task_deduplicates_tags(self, client):
+        response = client.post(
+            "/tasks", json={"title": "Fix bug", "tags": ["backend", "backend"]}
+        )
+        assert response.status_code == 201
+        assert response.json()["tags"] == ["backend"]
+
+    def test_create_task_rejects_too_many_tags(self, client):
+        response = client.post(
+            "/tasks", json={"title": "Fix bug", "tags": [f"tag{i}" for i in range(11)]}
+        )
+        assert response.status_code == 422
+
+    def test_update_tags_replaces_list(self, client, created_task):
+        response = client.patch(
+            f"/tasks/{created_task['id']}", json={"tags": ["frontend"]}
+        )
+        assert response.status_code == 200
+        assert response.json()["tags"] == ["frontend"]
+
+    def test_update_without_tags_field_preserves_existing_tags(self, client):
+        create = client.post("/tasks", json={"title": "Fix bug", "tags": ["backend"]})
+        task_id = create.json()["id"]
+        response = client.patch(f"/tasks/{task_id}", json={"priority": "High"})
+        assert response.status_code == 200
+        assert response.json()["tags"] == ["backend"]
+
+    def test_update_with_empty_tags_list_clears_tags(self, client):
+        create = client.post("/tasks", json={"title": "Fix bug", "tags": ["backend"]})
+        task_id = create.json()["id"]
+        response = client.patch(f"/tasks/{task_id}", json={"tags": []})
+        assert response.status_code == 200
+        assert response.json()["tags"] == []
+
+    def test_filter_by_tag_returns_matching_only(self, client):
+        client.post("/tasks", json={"title": "A", "tags": ["backend"]})
+        client.post("/tasks", json={"title": "B", "tags": ["frontend"]})
+
+        response = client.get("/tasks", params={"tag": "backend"})
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body) == 1
+        assert body[0]["title"] == "A"
+
+    def test_filter_by_tag_with_no_matches_returns_empty_list(self, client, created_task):
+        response = client.get("/tasks", params={"tag": "nonexistent"})
+        assert response.status_code == 200
+        assert response.json() == []
+
+
 class TestDeleteTask:
     def test_delete_task_returns_204(self, client, created_task):
         response = client.delete(f"/tasks/{created_task['id']}")

@@ -44,12 +44,18 @@ def create_task(payload: TaskCreate) -> TaskResponse:
 def list_tasks(
     status_filter: Optional[TaskStatus] = Query(default=None, alias="status"),
     priority: Optional[TaskPriority] = Query(default=None),
+    overdue: Optional[bool] = Query(default=None),
+    tag: Optional[str] = Query(default=None),
 ) -> list[TaskResponse]:
     tasks = storage.list()
     if status_filter is not None:
         tasks = [t for t in tasks if t.status == status_filter]
     if priority is not None:
         tasks = [t for t in tasks if t.priority == priority]
+    if overdue is not None:
+        tasks = [t for t in tasks if t.is_overdue == overdue]
+    if tag is not None:
+        tasks = [t for t in tasks if tag in t.tags]
     return tasks
 
 
