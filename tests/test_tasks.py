@@ -115,6 +115,66 @@ class TestUpdateTask:
         assert response.status_code == 422
 
 
+class TestUpdateRejectsExplicitNull:
+    """
+    Regression tests: PATCH must reject an explicit `null` for fields that
+    cannot legitimately be "no value" on an existing task (title, status,
+    priority, tags), while still allowing those same fields to be *omitted*
+    (meaning "leave unchanged"), and still allowing explicit null for the
+    fields where null is a genuinely valid state (description, assignee,
+    due_date).
+    """
+
+    def test_explicit_null_title_returns_422(self, client, created_task):
+        response = client.patch(f"/tasks/{created_task['id']}", json={"title": None})
+        assert response.status_code == 422
+
+    def test_explicit_null_status_returns_422(self, client, created_task):
+        response = client.patch(f"/tasks/{created_task['id']}", json={"status": None})
+        assert response.status_code == 422
+
+    def test_explicit_null_priority_returns_422(self, client, created_task):
+        response = client.patch(f"/tasks/{created_task['id']}", json={"priority": None})
+        assert response.status_code == 422
+
+    def test_explicit_null_tags_returns_422(self, client, created_task):
+        response = client.patch(f"/tasks/{created_task['id']}", json={"tags": None})
+        assert response.status_code == 422
+
+    def test_null_rejection_does_not_corrupt_existing_task(self, client, created_task):
+        """A rejected null update must not have partially applied."""
+        client.patch(f"/tasks/{created_task['id']}", json={"title": None})
+        response = client.get(f"/tasks/{created_task['id']}")
+        assert response.status_code == 200
+        assert response.json()["title"] == created_task["title"]
+
+    def test_omitting_title_still_leaves_it_unchanged(self, client, created_task):
+        """Omission (not sending the field at all) must still work normally."""
+        response = client.patch(
+            f"/tasks/{created_task['id']}", json={"priority": "High"}
+        )
+        assert response.status_code == 200
+        assert response.json()["title"] == created_task["title"]
+
+    def test_explicit_null_description_is_still_valid(self, client, created_task):
+        """description is a genuinely optional field; explicit null clears it."""
+        response = client.patch(
+            f"/tasks/{created_task['id']}", json={"description": None}
+        )
+        assert response.status_code == 200
+        assert response.json()["description"] is None
+
+    def test_explicit_null_assignee_is_still_valid(self, client, created_task):
+        response = client.patch(f"/tasks/{created_task['id']}", json={"assignee": None})
+        assert response.status_code == 200
+        assert response.json()["assignee"] is None
+
+    def test_explicit_null_due_date_is_still_valid(self, client, created_task):
+        response = client.patch(f"/tasks/{created_task['id']}", json={"due_date": None})
+        assert response.status_code == 200
+        assert response.json()["due_date"] is None
+
+
 class TestDueDateAndOverdue:
     def test_create_task_with_valid_due_date(self, client):
         response = client.post(

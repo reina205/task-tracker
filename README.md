@@ -44,9 +44,13 @@ browsers, since the frontend talks to the backend via CORS-enabled `fetch`.)
 pytest -v
 ```
 
-23 tests cover: task creation and validation, listing and filtering,
-get-by-id, partial updates, the Done status-transition rule, and delete —
-including 404/422 edge cases.
+51 tests cover: task creation and validation, listing and filtering,
+get-by-id, partial updates, the Done status-transition rule, delete
+(including 404/422 edge cases), due dates and the overdue filter, tags
+and tag filtering, and a dedicated regression suite (`TestUpdateRejectsExplicitNull`)
+confirming that PATCH rejects explicit `null` for `title`/`status`/`priority`/`tags`
+while still allowing those fields to be omitted, and still allowing explicit
+`null` for the genuinely optional fields (`description`, `assignee`, `due_date`).
 
 ## Project structure
 

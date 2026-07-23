@@ -46,6 +46,25 @@ This log covers the prompts used with Claude (Anthropic) to implement both featu
 
 ---
 
+## Resubmission fix: explicit-null validation bug (facilitator feedback)
+
+**Prompt 1:**
+> "Facilitator feedback says sending an explicit `null` for `title`, `status`, or `priority` on a task update is accepted with 200 instead of rejected with 422. Reproduce this bug against the actual API first, then explain the root cause before fixing anything."
+
+- **What AI returned:** A reproduction script confirming `PATCH {"title": null}` returns 200 and sets `title` to `null`, plus an explanation that the `title` validator explicitly returned `None` unchanged, and `status`/`priority` had no validator at all.
+- **What I accepted/edited/rejected:** Accepted the diagnosis, asked for confirmation the fix wouldn't also break legitimate omission (leaving a field unchanged) before applying it.
+
+**Prompt 2:**
+> "Fix this so explicit null is rejected for title, status, priority, and tags, but omitting those fields still works as before, and explicit null is still valid for description, assignee, and due_date. Verify with a script that checks all of these cases, not just the broken one."
+
+- **What AI returned:** Updated validators, plus a verification script covering: explicit nulls that should be rejected, an omitted-field partial update that should still succeed, and explicit nulls that should still be accepted for the genuinely-optional fields.
+- **What I accepted/edited/rejected:** Ran it and reviewed each printed status code against what I expected before accepting the fix as correct — this was to make sure the fix didn't overcorrect and break legitimate partial updates.
+
+**Prompt 3 (real Break Test, not just valid-input-vs-broken-code):**
+> "The facilitator specifically said Break Test evidence needs to show a test failing after a deliberate defect is introduced, then passing again after the fix is restored, not just valid input against already-correct code. Do that using the actual pytest suite: temporarily reintroduce the original bug, run the new regression tests to show them fail, then restore the fix and run the full suite."
+- **What AI returned:** Reintroduced the exact original defect, ran `pytest`, showed 2 tests failing with the same symptom described in the feedback (`title` becoming `None`), then restored the fix and reran the full suite (51 passed).
+- **What I accepted/edited/rejected:** This became the evidence in `verification.md` directly, since it's actual pytest output rather than a paraphrase.
+
 ## General note on AI-assisted workflow
 
 Across both features, most of my edits to AI output were about being **more specific up front** rather than fixing broken code after the fact — for example, explicitly stating "replace, don't merge" for tag updates, and explicitly forcing the overdue computation into the backend rather than letting the AI pick. Every piece of generated code was run through the existing pytest suite plus new tests, and manually verified in the browser (creating tasks, checking pills/chips render correctly, testing filters) before being committed.

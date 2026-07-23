@@ -68,6 +68,21 @@ def _validate_tags(tags: Optional[list[str]]) -> Optional[list[str]]:
     return cleaned
 
 
+def _reject_explicit_none(value, field_name: str, hint: str = ""):
+    """
+    Shared guard for TaskUpdate fields where explicit `null` is invalid
+    (unlike omission, which means "leave unchanged"). Extracted so the
+    status/priority/tags validators don't each repeat the same None-check
+    and error-message pattern.
+    """
+    if value is None:
+        message = f"{field_name} cannot be explicitly set to null"
+        if hint:
+            message += f"; {hint}"
+        raise ValueError(message)
+    return value
+
+
 class TaskCreate(BaseModel):
     """Request body for POST /tasks."""
 
@@ -93,7 +108,22 @@ class TaskCreate(BaseModel):
 
 
 class TaskUpdate(BaseModel):
-    """Request body for PATCH /tasks/{id}. All fields optional (partial update)."""
+    """
+    Request body for PATCH /tasks/{id}. All fields are optional in the sense
+    that they may be *omitted* to mean "leave unchanged". However, once a
+    field is included in the request at all, an explicit `null` is treated
+    as invalid for title/status/priority/tags — none of these represent a
+    valid "no value" state for an existing task. `description`, `assignee`,
+    and `due_date` are true optional attributes, so explicit null is valid
+    for those (it means "clear this field").
+
+    Implementation note: Pydantic v2 field validators only run when a field
+    is actually present in the request body, not when its default is used
+    because the field was omitted. That is what lets us tell "omitted"
+    (validator skipped, field silently ignored by exclude_unset) apart from
+    "explicitly null" (validator runs and rejects it) using the same
+    Optional[...] = None type.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -107,15 +137,27 @@ class TaskUpdate(BaseModel):
 
     @field_validator("title")
     @classmethod
-    def title_not_blank(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return v
+    def title_not_blank(cls, v: Optional[str]) -> str:
+        v = _reject_explicit_none(v, "title")
         return _validate_title(v)
+
+    @field_validator("status")
+    @classmethod
+    def status_not_null(cls, v: Optional[TaskStatus]) -> TaskStatus:
+        return _reject_explicit_none(v, "status")
+
+    @field_validator("priority")
+    @classmethod
+    def priority_not_null(cls, v: Optional[TaskPriority]) -> TaskPriority:
+        return _reject_explicit_none(v, "priority")
 
     @field_validator("tags")
     @classmethod
-    def tags_valid(cls, v: Optional[list[str]]) -> Optional[list[str]]:
-        return _validate_tags(v)
+    def tags_valid(cls, v: Optional[list[str]]) -> list[str]:
+        v = _reject_explicit_none(
+            v, "tags", hint="send an empty list to clear tags"
+        )
+        return _validate_tags(v) or []
 
 
 class TaskResponse(BaseModel):
