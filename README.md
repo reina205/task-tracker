@@ -68,3 +68,23 @@ tests/
   test_health.py        Health check test
 docs/midcourse/          Mid-course project documentation (added later)
 ```
+
+
+
+
+
+
+
+
+
+## Final Project
+
+Branch reviewed: final-project
+
+### What this submission demonstrates
+- Existing Task Tracker app still runs inside the intended course scope.
+- CI runs the pytest suite on push and/or pull request.
+- Docker image builds and runs with /health returning 200.
+- AI review, security, and ownership evidence is in docs/.
+
+### How to run locally
