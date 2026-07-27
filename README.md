@@ -88,3 +88,36 @@ Branch reviewed: final-project
 - AI review, security, and ownership evidence is in docs/.
 
 ### How to run locally
+
+
+
+
+
+
+
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload 
+
+Then open frontend/index.html in a browser.
+
+### How to run tests
+
+pytest
+
+### How to run with Docker
+
+docker build -t task-tracker .
+docker run -p 8000:8000 task-tracker
+curl http://127.0.0.1:8000/health
+
+### Evidence files
+- docs/release-evidence.md
+- docs/final-ai-review.md
+- docs/ai-playbook.md
+
+### AI assistance summary
+AI helped draft or review: CI workflow, Dockerfile, AGENTS.md, and documentation structure.
+I verified the work by: running the full pytest suite (51 passed), checking /health manually on both local and Docker runs, confirming the Kanban UI create/edit flow in browser, and confirming the CI workflow ran green on GitHub Actions.
+One AI suggestion I rejected or corrected: [to be filled in after Part C]
