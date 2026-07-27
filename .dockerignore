@@ -1,0 +1,13 @@
+.git
+.github
+.gitignore
+venv
+__pycache__
+*.pyc
+.pytest_cache
+.env
+.env.example
+docs
+tests
+README.md
+AGENTS.md
